@@ -23,7 +23,9 @@ function Assistant( dirStore ){
 	this.tasks = {};
 	this.prompt = inquirer.createPromptModule();
 	this.status = new inquirer.ui.BottomBar();
-	this.completed = [];
+	this.tasksCompleted = [
+		{id:'x',options:{name:'Test'}}
+	];
 
 	//retrieve a list of tasks
 	fs.readdirAsync( this.dirStore )
@@ -58,14 +60,30 @@ function Assistant( dirStore ){
 	.then( () => {
 		
 		// limit the width for rendering
-		this.choose( 'What can I do for you?', _.map( this.tasks, ( task, id ) => ({name:task.name,value:id}) ) )
-		.then( answer => {
-			this.task( answer );
-		} )
+		this.services();
 	} )
 }
 
+Assistant.prototype.services = function( message, choices ){
+	return this.choose( 'What can I do for you?', _.concat(
+		_.map( this.tasks, ( task, id ) => ({name:task.name,value:id}) ),
+		{name:'Exit',value:() => this.exit() }
+	) )
+	.then( answer => {
+		if( util.isFunction( answer ) ){
+			return answer();
+		}else{
+			this.start( answer );
+		}
+	} );
+}
+
 Assistant.prototype.choose = function( message, choices ){
+	if( util.isArray( message ) ){
+		choices = message;
+		message = null;
+	}
+
 	return this.ask([
 		{
 			name : 'choice',
@@ -82,12 +100,73 @@ Assistant.prototype.ask = function( questions ){
 }
 
 
-Assistant.prototype.task = function( id, options = {} ){
+Assistant.prototype.start = function( id, options = {} ){
 	//this.status.updateBottomBar(`Task: ${this.tasks[id].name}`)
-	this.completed.push({id,options})
-	return this.tasks[id].func( this, options );
+	if( this.currentTask ){
+		throw new Error(`Task '${this.currentTask.id}' is still running`);
+	}else if( !id ){
+		throw new Error('Task id required');
+	}else{
+		this.currentTask = {id,options};
+		const promise = this.tasks[id].func( this, options );
+
+		if( !util.isNullOrUndefined( promise ) ){
+			if( util.isFunction( promise.then ) ){
+				//wait until it completes
+				promise.then( result => {
+					completedCurrentTask();
+					//check for additional task
+					checkForTask( result );
+				} );
+			}else{
+				completedCurrentTask();
+				checkForTask( promise );
+			}
+		}
+	}
+
+	const completedCurrentTask = () => {
+		if( this.currentTask ){
+			this.tasksCompleted.push( this.currentTask );
+			this.currentTask = null;			
+		}
+	}
+
+	const checkForTask = ( result ) => {
+		//did we exit with another task
+		const {task} = result || {};
+		if( task ){
+			this.start( task.id, task.options );
+		}else{
+			this.services();
+		}
+	}
 }
 
+Assistant.prototype.task = function( id, options = {} ){
+	//stop promise - we return a formatted object - the previous task now needs to exit
+	return {task:{id,options}}
+}
+
+Assistant.prototype.completed = function( id, options = {} ){
+	//check all the completed tasks and see if they match
+	return !_.every( this.tasksCompleted, (task) => {
+		//return TRUE if doesn't match
+		//return FALSE if does match
+		if( id == task.id && _.every( options, (value, id) => {
+			//check only the supplid options to see if they match
+			return task.options[id] == value; 
+		}) ){
+			return false;
+		}
+		
+		return true;
+	} );
+}
+
+Assistant.prototype.exit = function( ){
+	console.log('Thank you!');
+}
 
 //HELPERS
 function getAssistantStore( dir ){
