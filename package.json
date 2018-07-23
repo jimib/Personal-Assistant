@@ -1,0 +1,23 @@
+{
+  "name": "personal-assistant",
+  "version": "1.0.0",
+  "description": "Personal Assistant to help in common tasks for your project",
+  "main": "index.js",
+  "author": "Jimib",
+  "license": "MIT",
+  "private": false,
+  "bin": {
+    "assistant": "bin/assistant.js"
+  },
+  "scripts": {
+    "test": "mocha tests --watch"
+  },
+  "preferGlobal": true,
+  "dependencies": {
+    "cli-clear": "^1.0.4",
+    "fs-extra-promise": "^1.0.1",
+    "handlebars": "^4.0.11",
+    "inquirer": "^6.0.0",
+    "lodash": "^4.17.10"
+  }
+}
