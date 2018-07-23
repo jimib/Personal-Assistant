@@ -10,25 +10,29 @@ task( TASK_NAME )
 		message : `${TASK_NAME}: Name`,
 		default : options.name
 	}])
-	.then( ( result ) => {
+	.then( ( options ) => {
 		//do something about this
-		
+		return options;
 	})
-	.then( ( result ) => {
-		const {name} = result;
+	.then( ( options ) => {
+		const {name} = options;
+		//offer additional actions
 		return assistant.choose( _.filter( [
+			//offer to add a matching reducer if assistant not already actioned it
+			{
+				name: `Add a handler to Action '${name}'`, 
+				value: () => assistant.task( 'add-action-handler', {action:name} )
+			},
 			assistant.completed( 'add-reducer', {name} ) == false && {
-				name: `Add a '${result.name}' reducer`, 
+				name: `Add a '${name}' reducer`, 
 				value: () => assistant.task( 'add-reducer', {name} )
 			},
 			{
-				name: `Other`, 
+				name: `Skip`, 
 				value: () => null
 			}
 		] ) )
-		.then( result => {
-			//action the chosen option
-			return result();
-		} );
+		//action what ever they selected (the value is a function)
+		.then( actionSelected => actionSelected() );
 	} )
 } );

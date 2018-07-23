@@ -64,8 +64,8 @@ function Assistant( dirStore ){
 	} )
 }
 
-Assistant.prototype.services = function( message, choices ){
-	return this.choose( 'What can I do for you?', _.concat(
+Assistant.prototype.services = function( message ){
+	return this.choose( message || 'What can I do for you?', _.concat(
 		_.map( this.tasks, ( task, id ) => ({name:task.name,value:id}) ),
 		{name:'Exit',value:() => this.exit() }
 	) )
@@ -138,7 +138,7 @@ Assistant.prototype.start = function( id, options = {} ){
 		if( task ){
 			this.start( task.id, task.options );
 		}else{
-			this.services();
+			this.services( 'Anything else I can do for you?' );
 		}
 	}
 }
