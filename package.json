@@ -10,15 +10,36 @@
     "assistant": "bin/assistant.js"
   },
   "scripts": {
-    "test": "mocha tests --watch"
+    "app:hotload": "NODE_ENV=development webpack-dev-server --hot",
+    "app:watch": "nodemon index.js --watch",
+    "app:dev": "concurrently \"npm run app:hotload\"  \"npm run app:watch\""
   },
   "preferGlobal": true,
   "dependencies": {
-    "cli-clear": "^1.0.4",
     "fs-extra-promise": "^1.0.1",
     "handlebars": "^4.0.11",
-    "inquirer": "^6.0.0",
     "lodash": "^4.17.10",
     "puppeteer": "^1.6.1"
+  },
+  "devDependencies": {
+    "babel-core": "^6.26.3",
+    "babel-loader": "^7.1.2",
+    "babel-preset-env": "^1.6.1",
+    "babel-preset-react": "^6.24.1",
+    "concurrently": "^3.6.1",
+    "jquery": "^3.3.1",
+    "nodemon": "^1.18.3",
+    "react": "^16.2.0",
+    "react-dom": "^16.2.0",
+    "react-hot-loader": "^4.3.3",
+    "style-loader": "^0.20.1",
+    "stylus": "^0.54.5",
+    "stylus-loader": "^3.0.1",
+    "webpack": "^4.16.2",
+    "webpack-cli": "^3.1.0",
+    "webpack-dev-server": "^3.1.5"
+  },
+  "nodemonConfig" : {
+    "ignore" : ["./src"]
   }
 }

@@ -1,11 +1,10 @@
-const clear = require('cli-clear');
-const inquirer = require('inquirer');
 const fs = require('fs-extra-promise');
 const path = require('path');
 const _ = require('lodash');
 const util = require('util');
 const Promise = require('bluebird');
 const Handlebars = require('handlebars');
+const puppeteer = require('puppeteer');
 
 const DIR_PROMPT = path.resolve('.');
 
@@ -23,20 +22,10 @@ function Assistant( dirStore ){
 	//variables
 	this.dirStore = dirStore;
 	this.tasks = {};
-	this.prompt = inquirer.createPromptModule();
-	this.status = new inquirer.ui.BottomBar();
-	this.tasksCompleted = [
-		{id:'x',options:{name:'Test'}}
-	];
+	this.tasksCompleted = [];
 
-	return this.findOne( path.resolve( DIR_PROMPT, './tests/example/reducers/TesterReducer.js' ), /(.+)\}(\n.+)\}\)\;/ )
-	.then( result => {
-		console.log( result );
-		return this.templateInsert( path.resolve( DIR_PROMPT, './tests/example/reducers/TesterReducer.js' ), result.match.index - 1, 'reducer-handler.js', {handler:'EXAMPLE_HANDLER'} )
-	} )
-
-	//retrieve a list of tasks
-	return this.list( this.dirStore, {extensions:['.js']})
+	return this.init()
+	.then( result => this.list( this.dirStore, {extensions:['.js']} ) )
 	.then( scripts => {
 		const pathToList = path.resolve( this.dirStore, 'list.json' ) ;
 		return fs.existsAsync( pathToList )
@@ -102,6 +91,24 @@ function Assistant( dirStore ){
 	} )
 }
 
+Assistant.prototype.init = async function(){
+	this.browser = await puppeteer.launch({headless:false});
+	this.popup = await this.browser.pages().then( pages => _.first( pages ) );
+	await this.popup.goto('http://localhost:8080/dist/index.html');
+	this.popup.evaluate( () => {
+		//add our webpack bundle to the page
+		var head = document.getElementsByTagName('head')[0];
+		var script = document.createElement('script');
+		script.type = 'text/javascript';
+		script.onload = function() {
+			callFunctionFromScript();
+		}
+		script.src = 'http://localhost:8080/app.bundle.js';
+		head.appendChild(script);
+	} )
+	return true;
+}
+
 Assistant.prototype.services = function( message ){
 	return this.choose( message || 'What can I do for you?', _.concat(
 		_.map( this.tasks, ( task, id ) => ({name:task.name,value:id}) ),
@@ -134,7 +141,7 @@ Assistant.prototype.choose = function( message, choices ){
 }
 
 Assistant.prototype.ask = function( questions ){
-	return this.prompt( questions );
+	//return this.prompt( questions );
 }
 
 
