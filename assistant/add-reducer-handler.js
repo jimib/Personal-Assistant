@@ -10,12 +10,8 @@ task( TASK_NAME )
 	return Promise.resolve( options.action )
 	.then( reducer => {
 		return reducer ? reducer : 
-		assistant.choose([
-			'Reducer1',
-			'Reducer2',
-			'Reducer3',
-			'Reducer4'
-		])
+		assistant.list('./tests/example/reducers',{extensions:['.js']})
+		.then( reducers => assistant.choose( reducers ) )
 	} )
 	.then( reducer => {
 		return {reducer}
@@ -23,7 +19,7 @@ task( TASK_NAME )
 	.then( ( state ) => {
 		return assistant.ask([{
 			name : 'handler',
-			message : `${TASK_NAME}: Name`,
+			message : `${TASK_NAME}: What SHOULD it do`,
 			default : options.name
 		}])
 		.then( input => _.merge( state, input ) )
@@ -43,7 +39,7 @@ task( TASK_NAME )
 				value: () => assistant.task( 'add-reducer-handler', {reducer} )
 			},
 			assistant.completed( 'add-action', {name:reducer} ) == false && {
-				name: `Add a '${action}' action`, 
+				name: `Add a '${reducer}' action`, 
 				value: () => assistant.task( 'add-action', {name:reducer} )
 			},
 			{

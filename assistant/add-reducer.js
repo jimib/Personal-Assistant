@@ -11,8 +11,11 @@ task( TASK_NAME )
 		default : options.name
 	}])
 	.then( ( options ) => {
+		const {name} = options;
 		//do something about this
-		return options;
+		return assistant.template( `./tests/example/reducers/${_.capitalize(name)}Reducer.js`, 'reducer.js', options )
+		//return the options - not the result of the template
+		.then( result => options );
 	})
 	.then( ( options ) => {
 		const {name} = options;

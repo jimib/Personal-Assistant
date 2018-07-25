@@ -4,6 +4,8 @@ const fs = require('fs-extra-promise');
 const path = require('path');
 const _ = require('lodash');
 const util = require('util');
+const Promise = require('bluebird');
+const Handlebars = require('handlebars');
 
 const DIR_PROMPT = path.resolve('.');
 
@@ -27,11 +29,47 @@ function Assistant( dirStore ){
 		{id:'x',options:{name:'Test'}}
 	];
 
+	return this.findOne( path.resolve( DIR_PROMPT, './tests/example/reducers/TesterReducer.js' ), /(.+)\}(\n.+)\}\)\;/ )
+	.then( result => {
+		console.log( result );
+		return this.templateInsert( path.resolve( DIR_PROMPT, './tests/example/reducers/TesterReducer.js' ), result.match.index - 1, 'reducer-handler.js', {handler:'EXAMPLE_HANDLER'} )
+	} )
+
 	//retrieve a list of tasks
-	fs.readdirAsync( this.dirStore )
-	//filter out any non-scripts
-	.then( scripts => _.filter( scripts, script => _.includes(['.js'], path.extname(script) ) ) )
+	return this.list( this.dirStore, {extensions:['.js']})
 	.then( scripts => {
+		const pathToList = path.resolve( this.dirStore, 'list.json' ) ;
+		return fs.existsAsync( pathToList )
+		.then( listExists => {
+			if( listExists ){
+				//load in the list and reorder scripts based on that
+				return fs.readJSONAsync( pathToList )
+				.then( list => {
+					let iscripts = [];
+					//rearrange the script
+					_.each( list, item => {
+						if( !path.extname( item ) ){
+							item = `${item}.js`
+						}
+
+						//add this in at the start of iscripts - if it exists in scripts
+						if( _.includes( scripts, item ) ){
+							//move the items
+							iscripts.push( item );
+							scripts = _.without( scripts, item );
+						}
+					} )
+					//combine the lists
+					return _.concat( iscripts, scripts );
+				} );
+
+			}else{
+				return scripts;
+			}
+		} )
+	})
+	.then( scripts => {
+
 		//loop each script and get a list of tasks
 		_.each( scripts, script => {
 			const id = path.basename( script, path.extname( script ) );
@@ -141,6 +179,103 @@ Assistant.prototype.start = function( id, options = {} ){
 			this.services( 'Anything else I can do for you?' );
 		}
 	}
+}
+
+Assistant.prototype.find = function( file, search ){
+	search = new RegExp( search, 'g' );
+
+	file = path.resolve( DIR_PROMPT, file );
+	return fs.existsAsync( file )
+	.then( exists => {
+		return !exists ? [] : 
+		fs.readFileAsync( file )
+		.then( data => {
+			const results = [];
+			let index = 0;
+			let match = null;
+			while( match = search.exec( data ) ){
+				results.push({
+					file,match
+				});
+			}
+			return results;
+		} )
+	} )
+}
+
+Assistant.prototype.findOne = function( file, search ){
+	return this.find( file, search )
+	.then( results => _.first( results ) );
+}
+
+Assistant.prototype.search = function( dir, search, options={} ){
+	return this.list( dir, options )
+	.then( files => {
+		return Promise.mapSeries( files, file => this.find( path.resolve( dir, file ), search ) );
+	} )
+	.then( results => _.filter( _.flatten( results ) ) );
+}
+
+Assistant.prototype.list = function( dir = '', options = {} ){
+	const pathToSearch = path.resolve( DIR_PROMPT, dir );
+	console.log( 'list', pathToSearch );
+	//retrieve a list of tasks
+	return fs.readdirAsync( pathToSearch )
+	//filter out any non-scripts
+	.then( scripts => {
+		console.log( scripts );
+		return !options.extensions ? scripts : 
+		_.filter( scripts, script => {
+			return _.includes( options.extensions, path.extname(script) )
+		})
+	})
+}
+
+Assistant.prototype.template = function( target, template, options={} ){
+	//where is the template
+	const pathToTemplate = path.resolve( this.dirStore, 'templates', template );
+	const pathToTarget = path.resolve( DIR_PROMPT, target );
+
+	return fs.readFileAsync( pathToTemplate, 'utf8' )
+	.then( templateContent => {
+		return Handlebars.compile( templateContent )( options );
+	} )
+	.then( content => fs.writeFileAsync( pathToTarget, content ) );
+}
+
+Assistant.prototype.templateInsert = function( target, index, template, options={} ){
+	//where is the template
+	const pathToTemplate = path.resolve( this.dirStore, 'templates', template );
+
+	return fs.readFileAsync( pathToTemplate, 'utf8' )
+	.then( templateContent => {
+		return Handlebars.compile( templateContent )( options );
+	} )
+	.then( content => this.insert( target, index, content ) );
+}
+
+Assistant.prototype.prepend = function( target, content ){
+	this.insert( target, 0, content );
+}
+
+Assistant.prototype.append = function( target, content ){
+	this.insert( target, 0, content );
+}
+
+Assistant.prototype.insert = function( target, index, insert ){
+	//where is the template
+	const pathToTarget = path.resolve( DIR_PROMPT, target );
+
+	return fs.readFileAsync( pathToTarget, 'utf8' )
+	.then( content => {
+		//count from the end of the file
+		if( index < 0 ){
+			index = content.length + index;
+		}
+
+		content = `${content.substring( 0, index )}${insert}${content.substring( index )}`;
+		return fs.writeFileAsync( pathToTarget, content );
+	} );
 }
 
 Assistant.prototype.task = function( id, options = {} ){
