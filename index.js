@@ -92,21 +92,13 @@ function Assistant( dirStore ){
 }
 
 Assistant.prototype.init = async function(){
-	this.browser = await puppeteer.launch({headless:false});
+	this.browser = await puppeteer.launch({headless:false,devtools:true});
 	this.popup = await this.browser.pages().then( pages => _.first( pages ) );
-	await this.popup.goto('http://localhost:8080/dist/index.html');
-	this.popup.evaluate( () => {
-		//add our webpack bundle to the page
-		var head = document.getElementsByTagName('head')[0];
-		var script = document.createElement('script');
-		script.type = 'text/javascript';
-		script.onload = function() {
-			callFunctionFromScript();
-		}
-		script.src = 'http://localhost:8080/app.bundle.js';
-		head.appendChild(script);
+	await this.popup.goto('http://localhost:8080/index.html');
+	return this.popup.addScriptTag( {url:'http://localhost:8080/app.bundle.js'} )
+	.then( () => {
+		return Promise.delay( 500 );
 	} )
-	return true;
 }
 
 Assistant.prototype.services = function( message ){
@@ -142,6 +134,9 @@ Assistant.prototype.choose = function( message, choices ){
 
 Assistant.prototype.ask = function( questions ){
 	//return this.prompt( questions );
+	return this.popup.evaluate( (questions) => {
+		return window.ask( questions );
+	}, questions );
 }
 
 
