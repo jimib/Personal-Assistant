@@ -3,7 +3,8 @@ const path = require('path');
 // Constant with our paths
 const paths = {
   DIST: path.resolve(__dirname, 'dist'),
-  SRC: path.resolve(__dirname, 'src')
+  SRC: path.resolve(__dirname, 'src'),
+  MODULES: path.resolve(__dirname, 'node_modules'),
 };
 
 // Webpack configuration
@@ -33,12 +34,22 @@ module.exports = {
       {
         test: /\.disable.css|styl$/,
         include: [
-			path.resolve( paths.SRC )
+          path.resolve( paths.SRC )
         ],
         use: [
           'style-loader', 
           'css-loader?-url&importLoader=1&modules&localIdentName=[path]___[name]__[local]___[hash:base64:5]', 
           'stylus-loader'
+        ]
+      },
+      {
+        test: /\.min.css$/,
+        include: [
+          path.resolve( paths.MODULES )
+        ],
+        use: [
+          'to-string-loader',
+          'css-loader'
         ]
       }
     ],
