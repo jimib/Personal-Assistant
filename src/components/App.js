@@ -21,7 +21,7 @@ import 'brace/theme/dracula';
 class App extends Component {
 
 	state = {
-		answers: [0,1,2,3],
+		answers: [],
 		questions: [
 			{
 				type: 'select',
@@ -71,29 +71,14 @@ it('Should ', () => {
 		console.assert( result, 'Expected a result' );
 	} );
 })`,
-					position: {
-						row : 1,
-						column : 11
-					}
+					line : 2,
+					column : 11
 				}
 			}
 		],
 		resolve: ( answers ) => console.log(`Complete`, answers),
 		reject: ( err ) => console.error('Error', err)
 	}
-
-	/**
-	 * QUESTION FORMAT
-	 * {
-	 * 	type : 'select',
-	 *  options : {
-	 * 	 multiselect : true,
-	 *   items : [
-	 *     labe
-	 *   ]
-	 *  }
-	 * }
-	 */
 
 	componentDidMount() {
 		//expose our ask method to the window so that puppeteer can call it
@@ -120,7 +105,14 @@ it('Should ', () => {
 			() => {
 				//respond to the change
 				if( _.size( answers ) >= _.size( questions ) ){
-					resolve( answers );
+					const result = _.map( questions, (question, index ) => {
+						return {
+							name:question.name,
+							value:answers[index]
+						}
+					} );
+
+					resolve( _.mapValues( _.keyBy( result, 'name' ), 'value' ) );
 				}
 			} 
 		);
@@ -215,7 +207,6 @@ class QuestionSelect extends Question{
 	
 	onChangeOther = ( evt, info={} ) => {
 		const {value=''} = info;
-		console.log('onChangeOther', evt);
 		this.setState({
 			other: value
 		})
@@ -230,8 +221,6 @@ class QuestionSelect extends Question{
 
 		const Input = multiselect ? Checkbox : Radio;
 
-		console.log('render');
-		
 		return (
 			<div className={Styles.select}>
 				{_.map(items, (item, index) => {
@@ -285,23 +274,26 @@ class QuestionCode extends Question{
 	}
 
 	componentWillReceiveProps( props ){
-		console.log('componentWillReceiveProps');
 		if( props.options ){
-			const {value} = props.options;
-			this.setState({
-				value
-			});
+			this.resetComponent( props.options )
 		}
 	}
 	
 	componentDidMount( ){
-		console.log('componentDidMount');
 		if( this.props.options ){
-			const {value} = this.props.options;
-			this.setState({
-				value
-			});
+			this.resetComponent( this.props.options );
 		}
+	}
+	
+	resetComponent( options ){
+		console.log('resetComponent', options );
+		const {value='',line=0,column=0} = options;
+		this.setState({
+			value
+		}, () => {
+			this.ace.editor.focus();
+			this.ace.editor.gotoLine(line,column);
+		} );
 	}
 
 	onChange = ( value ) => {
@@ -320,6 +312,7 @@ class QuestionCode extends Question{
 		return (
 			<div className={Styles.code}>
 				<AceEditor
+					ref={ref=>this.ace=ref}
 					mode="javascript"
 					theme="dracula"
 					onChange={this.onChange}
