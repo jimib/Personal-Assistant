@@ -314,8 +314,15 @@ class QuestionCode extends Question{
 		const {line = 1,column = 1} = this.props.options;
 		this.ace.editor.focus();
 		this.ace.editor.gotoLine(line,column);	
+		this.ace.editor.commands.addCommand({
+			name: "myCommand",
+			bindKey: { win: "Ctrl-Enter", mac: "Command-Enter" },
+			exec: () => {
+				this.onAnswer();
+			}
+		});
 	}
-
+	
 	updateValue( value ){
 		this.setState({
 			value
@@ -334,24 +341,34 @@ class QuestionCode extends Question{
 			this.acePre.editor.setOption('showLineNumbers', false);
 			this.ace.editor.setOption('showLineNumbers', false);
 			this.acePost.editor.setOption('showLineNumbers', false);
-
+			
 			this.acePre.editor.setOption("useWorker", false);
 			this.acePost.editor.setOption("useWorker", false);
-
+			
 			this.setState({editor});
 		} );
 	}
-
+	
 	onChange = ( value ) => {
 		this.updateValue(value);
 	}
-
+	
 	onAnswer = () => {
-		const {value} = this.state;
-		const {options={},onAnswer} = this.props;
-		onAnswer( value );
-	}
+		const annotations = this.ace.editor.getSession().getAnnotations();
 
+		const numErrors = _.size( _.filter( annotations, {type:'error'} ) );
+		const numWarnings = _.size( _.filter( annotations, {type:'warning'} ) );
+
+		console.log( numErrors, numWarnings );
+		if( numErrors + numWarnings == 0 || confirm(`There are ${numErrors} errors and ${numWarnings} warnings. Are you sure you want to commit?`) ){
+			//either no issues or the user has decided to push on
+			const {value} = this.state;
+			const {options={},onAnswer} = this.props;
+			onAnswer( value );
+		}
+		
+	}
+	
 	render(){
 		const {value,editor} = this.state;
 		const {options, type='input'} = this.props;
