@@ -95,10 +95,7 @@ Assistant.prototype.init = async function(){
 	this.browser = await puppeteer.launch({headless:false,devtools:true});
 	this.popup = await this.browser.pages().then( pages => _.first( pages ) );
 	await this.popup.goto('http://localhost:8080/index.html');
-	return this.popup.addScriptTag( {url:'http://localhost:8080/app.bundle.js'} )
-	.then( () => {
-		return Promise.delay( 500 );
-	} )
+	return Promise.delay( 500 );
 }
 
 Assistant.prototype.services = function( message ){
@@ -125,15 +122,17 @@ Assistant.prototype.choose = function( message, choices ){
 		{
 			name : 'choice',
 			message : message,
-			type : 'list',
-			choices : choices
+			type : 'select',
+			options : {
+				items: choices
+			}
 		}
 	])
 	.then( result => result.choice );
 }
 
 Assistant.prototype.ask = function( questions ){
-	//return this.prompt( questions );
+	console.log( 'ask', questions );
 	return this.popup.evaluate( (questions) => {
 		return window.ask( questions );
 	}, questions );

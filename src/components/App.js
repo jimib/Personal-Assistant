@@ -24,6 +24,21 @@ class App extends Component {
 		answers: [],
 		questions: [
 			{
+				type: 'code',
+				name: 'q5',
+				options: {
+					value : `
+it('Should ', () => {
+	return Promise.resolve()
+	.then( ( result ) => {
+		console.assert( result, 'Expected a result' );
+	} );
+})`,
+					line : 2,
+					column : 11
+				}
+			},
+			{
 				type: 'select',
 				name: 'q1',
 				message : 'What do you want?',
@@ -86,6 +101,7 @@ it('Should ', () => {
 	}
 
 	ask = (questions) => {
+		console.log('Ask',  questions);
 		return new Promise((resolve, reject) => {
 			this.setState({
 				resolve, reject, questions, answers: []
@@ -135,6 +151,9 @@ it('Should ', () => {
 				case 'code':
 					console.log('code');
 					return <QuestionCode key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
+				break;
+				default:
+					return <QuestionInput key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
 			}
 		}
@@ -224,9 +243,10 @@ class QuestionSelect extends Question{
 		return (
 			<div className={Styles.select}>
 				{_.map(items, (item, index) => {
+					item = util.isString( item ) ? {name:item,value:item} : item;
 					return (
 					<Form.Field key={index}>
-						<Input label={item.label} value={item.value} checked={_.includes(values,item.value)} onChange={this.onSelect} />
+						<Input label={item.label || item.name} value={item.value} checked={_.includes(values,item.value)} onChange={this.onSelect} />
 						{item.other ? <Form.Input value={other||''} onFocus={this.onChangeOther} onChange={this.onChangeOther} placeholder={'Other:'} /> : <Button data-value={item.value} onClick={this.onAnswer} icon='arrow right' /> }
 					</Form.Field>
 					)
@@ -270,34 +290,60 @@ class QuestionInput extends Question{
 
 class QuestionCode extends Question{
 	state = {
-		value : ''
+		value : '',
+		editor : {}
 	}
 
 	componentWillReceiveProps( props ){
-		if( props.options ){
-			this.resetComponent( props.options )
+		if( props.value != this.props.value ){
+			this.updateValue( props.value );
 		}
 	}
 	
 	componentDidMount( ){
-		if( this.props.options ){
-			this.resetComponent( this.props.options );
-		}
+		this.updateValue( this.props.value );
+		this.initEditor();
 	}
 	
 	resetComponent( options ){
 		console.log('resetComponent', options );
 		const {value='',line=0,column=0} = options;
+	}
+
+	initEditor(){
+		const {line = 1,column = 1} = this.props.options;
+		this.ace.editor.focus();
+		this.ace.editor.gotoLine(line,column);	
+	}
+
+	updateValue( value ){
 		this.setState({
 			value
 		}, () => {
-			this.ace.editor.focus();
-			this.ace.editor.gotoLine(line,column);
+			let editor = {
+				numLinesPre : this.acePre.editor.getSession().getScreenLength(),
+				numLines : this.ace.editor.getSession().getScreenLength(),
+				numLinesPost : this.acePost.editor.getSession().getScreenLength(),
+				lineHeight : this.ace.editor.renderer.lineHeight
+			}
+			
+			//this.ace.editor.setOption("autoScrollEditorIntoView", true);
+			this.ace.editor.setOption("firstLineNumber", 1 + editor.numLinesPre);
+			this.acePost.editor.setOption("firstLineNumber", 1 + editor.numLinesPre + editor.numLines);
+			
+			this.acePre.editor.setOption('showLineNumbers', false);
+			this.ace.editor.setOption('showLineNumbers', false);
+			this.acePost.editor.setOption('showLineNumbers', false);
+
+			this.acePre.editor.setOption("useWorker", false);
+			this.acePost.editor.setOption("useWorker", false);
+
+			this.setState({editor});
 		} );
 	}
 
 	onChange = ( value ) => {
-		this.setState({value});
+		this.updateValue(value);
 	}
 
 	onAnswer = () => {
@@ -307,18 +353,42 @@ class QuestionCode extends Question{
 	}
 
 	render(){
-		const {value} = this.state;
+		const {value,editor} = this.state;
 		const {options, type='input'} = this.props;
+
+		const {numLinesPre = 0, numLinesPost = 0, numLines = 1, lineHeight = 16} = editor || {};
+
 		return (
 			<div className={Styles.code}>
+				<AceEditor
+					ref={ref=>this.acePre=ref}
+					mode="javascript"
+					theme="dracula"
+					name="editor-pre"
+					width={'100%'}
+					height={`${numLinesPre*lineHeight}px`}
+					style={{opacity:0.5,pointerEvents:'none'}}
+					value={'intro...'}
+					/>
 				<AceEditor
 					ref={ref=>this.ace=ref}
 					mode="javascript"
 					theme="dracula"
 					onChange={this.onChange}
-					name="UNIQUE_ID_OF_DIV"
+					name="editor"
+					width={'100%'}
+					height={`${numLines*lineHeight}px`}
 					value={value}
-					editorProps={{ $blockScrolling: true }}
+					/>
+				<AceEditor
+					ref={ref=>this.acePost=ref}
+					mode="javascript"
+					theme="dracula"
+					name="editor-post"
+					width={'100%'}
+					height={`${numLinesPost*lineHeight}px`}
+					style={{opacity:0.5,pointerEvents:'none'}}
+					value={'outro....\n\n\n'}
 				/>
 				<Button primary content='Submit' onClick={this.onAnswer} />
 			</div>
