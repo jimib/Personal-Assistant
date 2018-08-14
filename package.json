@@ -11,7 +11,9 @@
   },
   "scripts": {
     "app:hotload": "webpack-dev-server --hot",
-    "app:dev": "concurrently \"npm run app:hotload\""
+    "app:dev": "concurrently \"npm run app:hotload\"",
+    "build:js": "webpack -d",
+    "build": "npm run build:js"
   },
   "preferGlobal": true,
   "dependencies": {
