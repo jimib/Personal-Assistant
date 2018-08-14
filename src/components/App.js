@@ -25,9 +25,23 @@ class App extends Component {
 		answers: [],
 		questions: [
 			{
-				type: 'select',
+				type: 'choose',
+				name: 'q2',
+				message : 'Choose',
+				options: {
+					allowOther: true,
+					items: [
+						{label : 'Option 1', value: 1},
+						{label : 'Option 2', value: 2},
+						{label : 'Option 3', value: 3},
+						{label : 'Option 4', value: 4}
+					]
+				}
+			},
+			{
+				type: 'multiselect',
 				name: 'q1',
-				message : 'What do you want?',
+				message : 'Multiselect',
 				options: {
 					items: [
 						{label : 'Option 1', value: 1, enabled: true},
@@ -40,28 +54,17 @@ class App extends Component {
 				}
 			},
 			{
-				type: 'select',
-				name: 'q2',
-				options: {
-					multiselect: true,
-					items: [
-						{label : 'Option 1', value: 1},
-						{label : 'Option 2', value: 2},
-						{label : 'Option 3', value: 3},
-						{label : 'Option 4', value: 4},
-						{label : 'Other', other: true},
-					]
-				}
-			},
-			{
+				message : 'Password',
 				type: 'password',
 				name: 'q4'
 			},
 			{
+				message : 'Question',
 				type: 'input',
 				name: 'q3'
 			},
 			{
+				message : 'Code',
 				type: 'code',
 				name: 'q5',
 				options: {
@@ -74,26 +77,6 @@ it('Should ', () => {
 })`,
 					line : 2,
 					column : 11
-				}
-			},
-			{
-				type: 'code',
-				name: 'q5',
-				options: {
-					valuePre : `
-describe('Items', () =>{
-`,
-					value : `	it('Should ', () => {
-		return Promise.resolve()
-		.then( ( result ) => {
-			console.assert( result, 'Expected a result' );
-		} );
-	})`,
-					valuePost : `
-})
-`,
-					line : 1,
-					column : 12
 				}
 			}
 		],
@@ -145,8 +128,11 @@ describe('Items', () =>{
 		if( !util.isNullOrUndefined( question ) ){
 			const {name} = question; 
 			switch( question.type ){
-				case 'select':
+				case 'multiselect':
 					return <QuestionMultiSelect key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
+				break;
+				case 'choose':
+					return <QuestionChoose key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
 				case 'input':
 					return <QuestionInput key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
@@ -155,7 +141,6 @@ describe('Items', () =>{
 					return <QuestionInput key={name} name={name} type='password' options={question.options} onAnswer={this.onAnswer} />
 				break;
 				case 'code':
-					console.log('code');
 					return <QuestionCode key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
 				default:
@@ -262,9 +247,61 @@ class QuestionMultiSelect extends Question{
 	}
 }
 
+class QuestionChoose extends Question{
+	state = {
+		values : []
+	}
+
+	componentDidMount(){
+		this.initQuestion( );
+	}
+	
+	initQuestion(){
+	}
+
+	onAnswer = ( evt, info ) => {
+		const {value} = info.data;
+		this.props.onAnswer( value );
+	}
+	
+	onAnswerOther = ( value ) => {
+		console.log('onAnswerOther', value);
+		this.props.onAnswer( value );
+	}
+	
+	render(){
+		const {options={}} = this.props;
+
+		const {values, other} = this.state;
+		const {items,allowOther=false} = options;
+		return (
+			<div className={Styles.choose}>
+				{_.map(items, (item, index) => {
+					item = util.isString( item ) ? {label:item,value:item} : item;
+					return <Button key={index} className={Styles.button} fluid data={item} onClick={this.onAnswer} content={item.label} />
+				})}
+				{allowOther ? 
+				<Fragment>
+					<QuestionInput label='Other:' onAnswer={this.onAnswerOther} />
+				</Fragment>
+				: null }
+
+			</div>
+		)
+	}
+}
+
 class QuestionInput extends Question{
 	state = {
 		value : ''
+	}
+
+	componentDidMount = () => {
+		this.initQuestion();
+	}
+
+	initQuestion = () => {
+
 	}
 
 	onChange = ( evt ) => {
@@ -276,18 +313,20 @@ class QuestionInput extends Question{
 	onAnswer = ( evt ) => {
 		const {value} = this.state;
 		const {options={},onAnswer} = this.props;
-		console.log('onAnswer', value);
 		onAnswer( value );
 	}
 
 	render(){
 		const {value} = this.state;
-		const {options, type='input'} = this.props;
+		const {options, label, type='input'} = this.props;
+		const {allowEmpty = false} = options;
 		
+		const disabled = allowEmpty || _.size(value) == 0 ? true : false;
+
 		return (
 			<div className={Styles.input}>
-				<input type={type} value={value} onChange={this.onChange} />
-				<SubmitButton onSubmit={this.onAnswer} />
+				<Form.Input autoFocus fluid label={label} type={type} value={value} onChange={this.onChange} />
+				<SubmitButton disabled={disabled} onSubmit={this.onAnswer} />
 			</div>
 		)
 	}
@@ -322,7 +361,9 @@ class QuestionCode extends Question{
 		console.log( line, column );
 		this.ace.editor.focus();
 		setTimeout( () => {
-			this.ace.editor.gotoLine(line,column);
+			if( this.ace ){
+				this.ace.editor.gotoLine(line,column);
+			}
 		}, 10 );
 	}
 	
@@ -387,36 +428,38 @@ class QuestionCode extends Question{
 
 		return (
 			<div className={Styles.code}>
-				<AceEditor
-					ref={ref=>this.acePre=ref}
-					mode="javascript"
-					theme="dracula"
-					name="editor-pre"
-					width={'100%'}
-					height={`${numLinesPre*lineHeight}px`}
-					style={{opacity:0.5,pointerEvents:'none'}}
-					value={valuePre || ''}
+				<div className={Styles.editor}>
+					<AceEditor
+						ref={ref=>this.acePre=ref}
+						mode="javascript"
+						theme="dracula"
+						name="editor-pre"
+						width={'100%'}
+						height={`${numLinesPre*lineHeight}px`}
+						style={{opacity:0.5,pointerEvents:'none'}}
+						value={valuePre || ''}
+						/>
+					<AceEditor
+						ref={ref=>this.ace=ref}
+						mode="javascript"
+						theme="dracula"
+						onChange={this.onChange}
+						name="editor"
+						width={'100%'}
+						height={`${numLines*lineHeight}px`}
+						value={value}
+						/>
+					<AceEditor
+						ref={ref=>this.acePost=ref}
+						mode="javascript"
+						theme="dracula"
+						name="editor-post"
+						width={'100%'}
+						height={`${numLinesPost*lineHeight}px`}
+						style={{opacity:0.5,pointerEvents:'none'}}
+						value={valuePost || ''}
 					/>
-				<AceEditor
-					ref={ref=>this.ace=ref}
-					mode="javascript"
-					theme="dracula"
-					onChange={this.onChange}
-					name="editor"
-					width={'100%'}
-					height={`${numLines*lineHeight}px`}
-					value={value}
-					/>
-				<AceEditor
-					ref={ref=>this.acePost=ref}
-					mode="javascript"
-					theme="dracula"
-					name="editor-post"
-					width={'100%'}
-					height={`${numLinesPost*lineHeight}px`}
-					style={{opacity:0.5,pointerEvents:'none'}}
-					value={valuePost || ''}
-				/>
+				</div>
 				<SubmitButton onSubmit={this.onAnswer} />
 			</div>
 		)
