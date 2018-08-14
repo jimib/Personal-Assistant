@@ -14,6 +14,7 @@ import { getEventTargetAttrs } from '../util/Event';
 
 import brace from 'brace';
 import AceEditor from 'react-ace';
+import HotKeys from 'react-hot-keys';
 
 import 'brace/mode/javascript';
 import 'brace/theme/dracula';
@@ -24,32 +25,17 @@ class App extends Component {
 		answers: [],
 		questions: [
 			{
-				type: 'code',
-				name: 'q5',
-				options: {
-					value : `
-it('Should ', () => {
-	return Promise.resolve()
-	.then( ( result ) => {
-		console.assert( result, 'Expected a result' );
-	} );
-})`,
-					line : 2,
-					column : 11
-				}
-			},
-			{
 				type: 'select',
 				name: 'q1',
 				message : 'What do you want?',
 				options: {
-					multiselect: false,
 					items: [
-						{label : 'Option 1', value: 1},
-						{label : 'Option 2', value: 2},
+						{label : 'Option 1', value: 1, enabled: true},
+						{label : 'Option 2', value: 2, enabled: true},
+						{type : 'seperator'},
+						{type : 'header',label:'Other'},
 						{label : 'Option 3', value: 3},
-						{label : 'Option 4', value: 4},
-						{other: true},
+						{label : 'Option 4', value: 4}
 					]
 				}
 			},
@@ -88,6 +74,26 @@ it('Should ', () => {
 })`,
 					line : 2,
 					column : 11
+				}
+			},
+			{
+				type: 'code',
+				name: 'q5',
+				options: {
+					valuePre : `
+describe('Items', () =>{
+`,
+					value : `	it('Should ', () => {
+		return Promise.resolve()
+		.then( ( result ) => {
+			console.assert( result, 'Expected a result' );
+		} );
+	})`,
+					valuePost : `
+})
+`,
+					line : 1,
+					column : 12
 				}
 			}
 		],
@@ -140,7 +146,7 @@ it('Should ', () => {
 			const {name} = question; 
 			switch( question.type ){
 				case 'select':
-					return <QuestionSelect key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
+					return <QuestionMultiSelect key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
 				case 'input':
 					return <QuestionInput key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
@@ -187,25 +193,31 @@ Question.defaultProps = {
 	options : {}
 }
 
-class QuestionSelect extends Question{
+class QuestionMultiSelect extends Question{
 	state = {
-		values : [],
-		other : null
+		values : []
+	}
+
+	componentDidMount(){
+		this.initQuestion( );
+	}
+	
+	initQuestion(){
+		const {options = {}} = this.props;
+		const values = _.filter( _.map( options.items, item => {
+			return item.enabled ? item.value : null;
+		} ) );
+		this.setState({values});
 	}
 
 	onSelect = ( evt, {value} ) => {
 		const {options={}} = this.props;
-		const {multiselect=true} = options;
 
 		let values = _.clone( this.state.values );
 		if( _.includes( values, value ) ){
 			values = _.without( values, value );
 		}else{
-			if( multiselect ){
-				values.push( value );
-			}else{
-				values = [value];
-			}
+			values.push( value );
 		}
 
 		this.setState({values});
@@ -213,45 +225,38 @@ class QuestionSelect extends Question{
 
 	onAnswer = ( evt ) => {
 		const {values} = this.state;
-		
 		const {options={},onAnswer} = this.props;
-		const {multiselect=true} = options;
 		
-		if( multiselect ){
-			onAnswer( values );
-		}else{
-			onAnswer( _.first( values ) );
-		}
+		onAnswer( values );
 	}
 	
-	onChangeOther = ( evt, info={} ) => {
-		const {value=''} = info;
-		this.setState({
-			other: value
-		})
-	}
-
 	render(){
 		const {options={}} = this.props;
-		const {multiselect=true} = options;
 
 		const {values, other} = this.state;
 		const {items} = options;
-
-		const Input = multiselect ? Checkbox : Radio;
-
 		return (
 			<div className={Styles.select}>
 				{_.map(items, (item, index) => {
 					item = util.isString( item ) ? {name:item,value:item} : item;
-					return (
-					<Form.Field key={index}>
-						<Input label={item.label || item.name} value={item.value} checked={_.includes(values,item.value)} onChange={this.onSelect} />
-						{item.other ? <Form.Input value={other||''} onFocus={this.onChangeOther} onChange={this.onChangeOther} placeholder={'Other:'} /> : <Button data-value={item.value} onClick={this.onAnswer} icon='arrow right' /> }
-					</Form.Field>
-					)
+					switch( item.type ){
+						case 'seperator':
+							return <hr key={index} />
+						break;
+						case 'title':
+						case 'header':
+							return <h2 key={index}>{item.label}</h2>
+						break;
+						default:
+							return (
+							<Form.Field key={index}>
+								<Checkbox label={item.label || item.name} value={item.value} checked={_.includes(values,item.value)} onChange={this.onSelect} />
+							</Form.Field>
+							)
+						break;
+					}
 				})}
-				{values.length > 0 ? <Button primary content='Submit' onClick={this.onAnswer} /> : null }
+				<SubmitButton onSubmit={this.onAnswer} />
 			</div>
 		)
 	}
@@ -282,7 +287,7 @@ class QuestionInput extends Question{
 		return (
 			<div className={Styles.input}>
 				<input type={type} value={value} onChange={this.onChange} />
-				{ _.size( value ) > 0 ? <Button primary content='Submit' onClick={this.onAnswer} /> : null }
+				<SubmitButton onSubmit={this.onAnswer} />
 			</div>
 		)
 	}
@@ -291,18 +296,20 @@ class QuestionInput extends Question{
 class QuestionCode extends Question{
 	state = {
 		value : '',
+		valuePre : '',
+		valuePost : '',
 		editor : {}
 	}
 
 	componentWillReceiveProps( props ){
-		if( props.value != this.props.value ){
-			this.updateValue( props.value );
+		if( props.options != this.props.options ){
+			this.updateValue( props );
 		}
 	}
 	
 	componentDidMount( ){
-		this.updateValue( this.props.value );
-		this.initEditor();
+		this.updateValue( this.props.options );
+		this.initQuestion();
 	}
 	
 	resetComponent( options ){
@@ -310,22 +317,21 @@ class QuestionCode extends Question{
 		const {value='',line=0,column=0} = options;
 	}
 
-	initEditor(){
+	initQuestion(){
 		const {line = 1,column = 1} = this.props.options;
+		console.log( line, column );
 		this.ace.editor.focus();
-		this.ace.editor.gotoLine(line,column);	
-		this.ace.editor.commands.addCommand({
-			name: "myCommand",
-			bindKey: { win: "Ctrl-Enter", mac: "Command-Enter" },
-			exec: () => {
-				this.onAnswer();
-			}
-		});
+		setTimeout( () => {
+			this.ace.editor.gotoLine(line,column);
+		}, 10 );
 	}
 	
-	updateValue( value ){
+	updateValue( {value,valuePre,valuePost} ){
+		console.log('updateValue', value, valuePre, valuePost, this.props.options);
 		this.setState({
-			value
+			value,
+			valuePre,
+			valuePost
 		}, () => {
 			let editor = {
 				numLinesPre : this.acePre.editor.getSession().getScreenLength(),
@@ -350,7 +356,12 @@ class QuestionCode extends Question{
 	}
 	
 	onChange = ( value ) => {
-		this.updateValue(value);
+		const {valuePre,valuePost} = this.state;
+		this.updateValue({
+			value,
+			valuePre,
+			valuePost
+		});
 	}
 	
 	onAnswer = () => {
@@ -359,7 +370,6 @@ class QuestionCode extends Question{
 		const numErrors = _.size( _.filter( annotations, {type:'error'} ) );
 		const numWarnings = _.size( _.filter( annotations, {type:'warning'} ) );
 
-		console.log( numErrors, numWarnings );
 		if( numErrors + numWarnings == 0 || confirm(`There are ${numErrors} errors and ${numWarnings} warnings. Are you sure you want to commit?`) ){
 			//either no issues or the user has decided to push on
 			const {value} = this.state;
@@ -370,7 +380,7 @@ class QuestionCode extends Question{
 	}
 	
 	render(){
-		const {value,editor} = this.state;
+		const {value,valuePre,valuePost,editor} = this.state;
 		const {options, type='input'} = this.props;
 
 		const {numLinesPre = 0, numLinesPost = 0, numLines = 1, lineHeight = 16} = editor || {};
@@ -385,7 +395,7 @@ class QuestionCode extends Question{
 					width={'100%'}
 					height={`${numLinesPre*lineHeight}px`}
 					style={{opacity:0.5,pointerEvents:'none'}}
-					value={'intro...'}
+					value={valuePre || ''}
 					/>
 				<AceEditor
 					ref={ref=>this.ace=ref}
@@ -405,11 +415,28 @@ class QuestionCode extends Question{
 					width={'100%'}
 					height={`${numLinesPost*lineHeight}px`}
 					style={{opacity:0.5,pointerEvents:'none'}}
-					value={'outro....\n\n\n'}
+					value={valuePost || ''}
 				/>
-				<Button primary content='Submit' onClick={this.onAnswer} />
+				<SubmitButton onSubmit={this.onAnswer} />
 			</div>
 		)
 	}
+}
+
+const SubmitButton = ( props ) => {
+	const {onSubmit,disabled} = props;
+	return <Fragment>
+		{!disabled ? <HotKeys keyName='command+enter,ctrl+enter' onKeyDown={onSubmit} /> : null }
+		<Button className={Styles.submit} primary disabled={disabled} content='Submit [Command+Enter,Ctrl+Enter]' onClick={onSubmit} />
+	</Fragment>
+}
+
+SubmitButton.propTypes = {
+	onSubmit : PropTypes.func.isRequired,
+	disabled : PropTypes.bool
+}
+
+SubmitButton.defaultProp = {
+	disabled : false
 }
 
