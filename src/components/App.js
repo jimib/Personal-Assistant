@@ -24,7 +24,7 @@ class App extends Component {
 	state = {
 		answers: [],
 		questions: [
-			{
+			/*{
 				type: 'choose',
 				name: 'q2',
 				message : 'Choose',
@@ -79,6 +79,7 @@ it('Should ', () => {
 					column : 11
 				}
 			}
+			*/
 		],
 		resolve: ( answers ) => console.log(`Complete`, answers),
 		reject: ( err ) => console.error('Error', err)
@@ -134,18 +135,21 @@ it('Should ', () => {
 				case 'choose':
 					return <QuestionChoose key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
-				case 'input':
-					return <QuestionInput key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
+				case 'code':
+					return <QuestionCode key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
 				case 'password':
 					return <QuestionInput key={name} name={name} type='password' options={question.options} onAnswer={this.onAnswer} />
 				break;
-				case 'code':
-					return <QuestionCode key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
+				case 'input':
+				default: //if type is undefined it's a simple question object that the QuestionInput can handle
+					return <QuestionInput key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
+				/*
 				default:
 					throw new Error(`Unexpected question type '${question.type}'`);
 				break;
+				*/
 			}
 		}
 	}
@@ -224,18 +228,19 @@ class QuestionMultiSelect extends Question{
 			<div className={Styles.select}>
 				{_.map(items, (item, index) => {
 					item = util.isString( item ) ? {name:item,value:item} : item;
+					const label = item.label || item.name;
 					switch( item.type ){
 						case 'seperator':
 							return <hr key={index} />
 						break;
 						case 'title':
 						case 'header':
-							return <h2 key={index}>{item.label}</h2>
+							return <h2 key={index}>{label}</h2>
 						break;
 						default:
 							return (
 							<Form.Field key={index}>
-								<Checkbox label={item.label || item.name} value={item.value} checked={_.includes(values,item.value)} onChange={this.onSelect} />
+								<Checkbox label={label} value={item.value} checked={_.includes(values,item.value)} onChange={this.onSelect} />
 							</Form.Field>
 							)
 						break;
@@ -278,7 +283,8 @@ class QuestionChoose extends Question{
 			<div className={Styles.choose}>
 				{_.map(items, (item, index) => {
 					item = util.isString( item ) ? {label:item,value:item} : item;
-					return <Button key={index} className={Styles.button} fluid data={item} onClick={this.onAnswer} content={item.label} />
+					const label = item.label || item.name;
+					return <Button key={index} color={item.color} className={Styles.button} fluid data={item} onClick={this.onAnswer} content={label} />
 				})}
 				{allowOther ? 
 				<Fragment>

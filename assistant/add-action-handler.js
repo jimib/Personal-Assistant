@@ -47,7 +47,7 @@ task( TASK_NAME )
 				value: () => assistant.task( 'add-reducer', {name:action} )
 			},
 			{
-				name: `Skip`, 
+				name: `Skip`,
 				value: () => null
 			}
 		] ) )

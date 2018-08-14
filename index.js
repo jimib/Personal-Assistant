@@ -8,6 +8,10 @@ const puppeteer = require('puppeteer');
 
 const DIR_PROMPT = path.resolve('.');
 
+const ACTIONS = Object.freeze({
+	EXIT : 'ACTION:EXIT'
+})
+
 //look for an assistant directory
 getAssistantStore( DIR_PROMPT )
 .then( dir => {
@@ -92,22 +96,27 @@ function Assistant( dirStore ){
 }
 
 Assistant.prototype.init = async function(){
-	this.browser = await puppeteer.launch({headless:false,devtools:true});
+	this.browser = await puppeteer.launch({headless:false,devtools:true,args: ['--disable-infobars']});
 	this.popup = await this.browser.pages().then( pages => _.first( pages ) );
-	await this.popup.goto('http://localhost:8080/index.html');
+	await this.popup.goto( `file:${path.resolve( __dirname, 'dist', 'index.html')}` );
+	//await this.popup.goto('http://localhost:8080/index.html');
 	return Promise.delay( 500 );
 }
 
 Assistant.prototype.services = function( message ){
 	return this.choose( message || 'What can I do for you?', _.concat(
-		_.map( this.tasks, ( task, id ) => ({name:task.name,value:id}) ),
-		{name:'Exit',value:() => this.exit() }
+		_.map( this.tasks, ( task, id ) => ({label:task.name,value:id}) ),
+		{label:'Exit',color:'red',value:ACTIONS.EXIT }
 	) )
 	.then( answer => {
-		if( util.isFunction( answer ) ){
-			return answer();
-		}else{
-			this.start( answer );
+		switch( answer ){
+			case ACTIONS.EXIT:
+				process.exit();
+			break;
+			default:
+				console.log( answer );
+				this.start( answer );
+			break;
 		}
 	} );
 }
@@ -122,20 +131,24 @@ Assistant.prototype.choose = function( message, choices ){
 		{
 			name : 'choice',
 			message : message,
-			type : 'select',
+			type : 'choose',
 			options : {
 				items: choices
 			}
 		}
 	])
+	.then( result => {console.log('result', result);return result;} )
 	.then( result => result.choice );
 }
 
 Assistant.prototype.ask = function( questions ){
-	console.log( 'ask', questions );
+	console.log( 'ask', JSON.stringify( questions ) );
 	return this.popup.evaluate( (questions) => {
 		return window.ask( questions );
-	}, questions );
+	}, questions )
+	.catch( err => {
+		console.log( err );
+	} )
 }
 
 

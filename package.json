@@ -11,7 +11,8 @@
   },
   "scripts": {
     "app:hotload": "webpack-dev-server --hot",
-    "app:dev": "concurrently \"npm run app:hotload\"",
+    "app:watch": "nodemon index.js",
+    "app:dev": "concurrently \"npm run app:hotload\" \"npm run app:watch\"",
     "build:js": "webpack -d",
     "build": "npm run build:js"
   },
