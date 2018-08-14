@@ -144,7 +144,7 @@ it('Should ', () => {
 					return <QuestionCode key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
 				default:
-					return <QuestionInput key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
+					throw new Error(`Unexpected question type '${question.type}'`);
 				break;
 			}
 		}
