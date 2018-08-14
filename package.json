@@ -49,7 +49,8 @@
   },
   "nodemonConfig": {
     "ignore": [
-      "./src"
+      "./src",
+      "./tests"
     ]
   }
 }

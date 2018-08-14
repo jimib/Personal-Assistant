@@ -1,7 +1,4 @@
 [
-	"add-action",
-	"add-action-handler",
-	"add-reducer",
-	"add-reducer-handler",
-	"add-test"
+	"add-component-container",
+	"add-action-reducer"
 ]

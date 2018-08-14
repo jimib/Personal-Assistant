@@ -76,7 +76,8 @@ it('Should ', () => {
 	} );
 })`,
 					line : 2,
-					column : 11
+					column : 11,
+					language : 'javascript'
 				}
 			}
 			*/
@@ -397,6 +398,27 @@ class QuestionCode extends Question{
 			
 			this.acePre.editor.setOption("useWorker", false);
 			this.acePost.editor.setOption("useWorker", false);
+
+			/**
+			 * SET THE AUTO COMPLETE
+			 * var staticWordCompleter = {
+				getCompletions: function(editor, session, pos, prefix, callback) {
+					var wordList = ["foo", "bar", "baz"];
+					callback(null, wordList.map(function(word) {
+						return {
+							caption: word,
+							value: word,
+							meta: "static"
+						};
+					}));
+
+				}
+			}
+
+			langTools.setCompleters([staticWordCompleter])
+			// or 
+			editor.completers = [staticWordCompleter]
+			 */
 			
 			this.setState({editor});
 		} );
@@ -428,16 +450,17 @@ class QuestionCode extends Question{
 	
 	render(){
 		const {value,valuePre,valuePost,editor} = this.state;
-		const {options, type='input'} = this.props;
+		const {options = {}, type='input'} = this.props;
 
 		const {numLinesPre = 0, numLinesPost = 0, numLines = 1, lineHeight = 16} = editor || {};
+		const {language = 'javascript'} = options;
 
 		return (
 			<div className={Styles.code}>
 				<div className={Styles.editor}>
 					<AceEditor
 						ref={ref=>this.acePre=ref}
-						mode="javascript"
+						mode={language}
 						theme="dracula"
 						name="editor-pre"
 						width={'100%'}
@@ -447,7 +470,7 @@ class QuestionCode extends Question{
 						/>
 					<AceEditor
 						ref={ref=>this.ace=ref}
-						mode="javascript"
+						mode={language}
 						theme="dracula"
 						onChange={this.onChange}
 						name="editor"
@@ -457,7 +480,7 @@ class QuestionCode extends Question{
 						/>
 					<AceEditor
 						ref={ref=>this.acePost=ref}
-						mode="javascript"
+						mode={language}
 						theme="dracula"
 						name="editor-post"
 						width={'100%'}
@@ -475,7 +498,7 @@ class QuestionCode extends Question{
 const SubmitButton = ( props ) => {
 	const {onSubmit,disabled} = props;
 	return <Fragment>
-		{!disabled ? <HotKeys keyName='command+enter,ctrl+enter' onKeyDown={onSubmit} /> : null }
+		{!disabled ? <HotKeys keyName='command+enter,ctrl+enter' onKeyUp={onSubmit} /> : null }
 		<Button className={Styles.submit} primary disabled={disabled} content='Submit [Command+Enter,Ctrl+Enter]' onClick={onSubmit} />
 	</Fragment>
 }

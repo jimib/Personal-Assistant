@@ -96,9 +96,17 @@ function Assistant( dirStore ){
 }
 
 Assistant.prototype.init = async function(){
-	this.browser = await puppeteer.launch({headless:false,devtools:true,args: ['--disable-infobars']});
+	this.browser = await puppeteer.launch(
+		{
+			headless:false,
+			devtools:false,
+			//defaultViewport : {width:300,height:500},
+			args: ['--disable-infobars']
+		}
+	);
 	this.popup = await this.browser.pages().then( pages => _.first( pages ) );
 	await this.popup.goto( `file:${path.resolve( __dirname, 'dist', 'index.html')}` );
+	
 	//await this.popup.goto('http://localhost:8080/index.html');
 	return Promise.delay( 500 );
 }
@@ -114,7 +122,6 @@ Assistant.prototype.services = function( message ){
 				process.exit();
 			break;
 			default:
-				console.log( answer );
 				this.start( answer );
 			break;
 		}
@@ -232,12 +239,10 @@ Assistant.prototype.search = function( dir, search, options={} ){
 
 Assistant.prototype.list = function( dir = '', options = {} ){
 	const pathToSearch = path.resolve( DIR_PROMPT, dir );
-	console.log( 'list', pathToSearch );
 	//retrieve a list of tasks
 	return fs.readdirAsync( pathToSearch )
 	//filter out any non-scripts
 	.then( scripts => {
-		console.log( scripts );
 		return !options.extensions ? scripts : 
 		_.filter( scripts, script => {
 			return _.includes( options.extensions, path.extname(script) )
@@ -247,25 +252,88 @@ Assistant.prototype.list = function( dir = '', options = {} ){
 
 Assistant.prototype.template = function( target, template, options={} ){
 	//where is the template
-	const pathToTemplate = path.resolve( this.dirStore, 'templates', template );
+	const pathToTemplate = path.resolve( this.dirStore, template );
 	const pathToTarget = path.resolve( DIR_PROMPT, target );
 
 	return fs.readFileAsync( pathToTemplate, 'utf8' )
 	.then( templateContent => {
+		//create contents from the file
 		return Handlebars.compile( templateContent )( options );
 	} )
+	//make sure the directory exists before we continue
+	.then( content => fs.ensureDirAsync( path.dirname( pathToTarget ) ).then( result => content ) )
+	//write out the file
 	.then( content => fs.writeFileAsync( pathToTarget, content ) );
 }
 
 Assistant.prototype.templateInsert = function( target, index, template, options={} ){
 	//where is the template
-	const pathToTemplate = path.resolve( this.dirStore, 'templates', template );
+	const pathToTemplate = path.resolve( this.dirStore, template );
 
 	return fs.readFileAsync( pathToTemplate, 'utf8' )
 	.then( templateContent => {
 		return Handlebars.compile( templateContent )( options );
 	} )
 	.then( content => this.insert( target, index, content ) );
+}
+
+Assistant.prototype.editCodeBlock = function( target, blockName, options = {} ){
+	return fs.readFileAsync( target, 'utf8' )
+	.then( codeContent => {
+		const codeLines = codeContent.split('\n');
+		const indexStart = _.findIndex( codeLines, (line, index) => {
+			return (line.indexOf(`START:${blockName}`) > -1 ? true : false );
+		});
+		const indexEnd = _.findIndex( codeLines, (line, index) => {
+			return (line.indexOf(`END:${blockName}`) > -1 ? true : false );
+		});
+
+		if( indexStart > -1 && indexEnd > -1 ){
+			const codeEdit = _.slice( codeLines, indexStart + 1, indexEnd ).join('\n');
+			return this.ask([
+				{
+					message : `Edit '${path.basename(target)} [${blockName}]'`,
+					type: 'code',
+					name: 'code',
+					options: {
+						value : codeEdit,
+						language : options.language
+					}
+				}
+			])
+			.then( result => {
+				const {code} = result;
+				const output = `${_.slice( codeLines, 0, indexStart + 1 ).join('\n')}
+${code}
+${_.slice( codeLines, indexEnd ).join('\n')}`
+
+				return fs.writeFileAsync( target, output, 'utf8');
+			} )
+		}else{
+			return null;
+		}
+	} )
+}
+
+Assistant.prototype.editCode = function( target, options = {} ){
+	return fs.readFileAsync( target, 'utf8' )
+	.then( codeContent => {
+		return this.ask([
+			{
+				message : `Edit '${path.basename(target)}'`,
+				type: 'code',
+				name: 'code',
+				options: {
+					value : codeContent,
+					language : options.language
+				}
+			}
+		])
+		.then( result => {
+			const {code} = result;
+			return fs.writeFileAsync( target, code, 'utf8');
+		} )
+	} )
 }
 
 Assistant.prototype.prepend = function( target, content ){
