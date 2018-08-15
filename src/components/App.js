@@ -19,12 +19,15 @@ import HotKeys from 'react-hot-keys';
 import 'brace/mode/javascript';
 import 'brace/theme/dracula';
 
+const KEYS_SUBMIT = 'command+enter,ctrl+enter';
 class App extends Component {
 
 	state = {
+		enabled: true,
+		acceptedAnswer : false,
 		answers: [],
-		questions: [
-			/*{
+		questions: false ? [] : [
+			{
 				type: 'choose',
 				name: 'q2',
 				message : 'Choose',
@@ -80,7 +83,6 @@ it('Should ', () => {
 					language : 'javascript'
 				}
 			}
-			*/
 		],
 		resolve: ( answers ) => console.log(`Complete`, answers),
 		reject: ( err ) => console.error('Error', err)
@@ -95,13 +97,17 @@ it('Should ', () => {
 		console.log('Ask',  questions);
 		return new Promise((resolve, reject) => {
 			this.setState({
-				resolve, reject, questions, answers: []
+				resolve, reject, questions, answers: [], acceptedAnswer: false
 			})
 		});
 	}
 
 	onAnswer = ( answer ) => {
-		const {questions, resolve} = this.state;
+		const {questions, resolve, enabled, acceptedAnswer} = this.state;
+
+		console.log('onAnswer', enabled, acceptedAnswer );
+		//we are using the keyboard and the answer is already given
+		if( !enabled && acceptedAnswer )return;
 		//add the answer to the stack
 		let answers = _.clone( this.state.answers );
 		answers.push( answer );
@@ -124,6 +130,10 @@ it('Should ', () => {
 			} 
 		);
 
+	}
+
+	onReleaseSubmit = () => {
+		SubmitButton.enabled = true;
 	}
 
 	renderQuestion( question ){
@@ -156,12 +166,13 @@ it('Should ', () => {
 	}
 
 	render() {
-		const { questions, answers } = this.state;
+		const { questions, answers, enabled } = this.state;
 		const question = questions[ _.size( answers ) ];
 
-		return <div className={Styles.container}>
+		return <div className={ClassNames(Styles.container,enabled?Styles.enabled:Styles.disabled)}>
 			{ question && question.message ? <h1>{question.message}</h1> : null }
 			{this.renderQuestion( question )}
+			{<HotKeys keyName={KEYS_SUBMIT} onKeyUp={this.onReleaseSubmit} />}
 		</div>
 	}
 }
@@ -318,6 +329,7 @@ class QuestionInput extends Question{
 	}
 
 	onAnswer = ( evt ) => {
+		console.log('onAnswer');
 		const {value} = this.state;
 		const {options={},onAnswer} = this.props;
 		onAnswer( value );
@@ -495,13 +507,33 @@ class QuestionCode extends Question{
 	}
 }
 
-const SubmitButton = ( props ) => {
-	const {onSubmit,disabled} = props;
-	return <Fragment>
-		{!disabled ? <HotKeys keyName='command+enter,ctrl+enter' onKeyUp={onSubmit} /> : null }
-		<Button className={Styles.submit} primary disabled={disabled} content='Submit [Command+Enter,Ctrl+Enter]' onClick={onSubmit} />
-	</Fragment>
-}
+
+class SubmitButton extends Component{
+
+	onKeyDown = () => {
+		console.log('onKeyDown');
+		const {disabled,onSubmit} = this.props;
+		if( !disabled && !SubmitButton.enabled ){
+			SubmitButton.enabled = false;
+			this.props.onSubmit();
+		}
+	}
+	
+	onKeyUp = () => {
+		console.log('onKeyUp');
+		SubmitButton.enabled = true;
+	}
+
+	render = ( ) => {
+		const {disabled,onSubmit} = this.props;
+		return <Fragment>
+			{false && !disabled && <HotKeys keyName={KEYS_SUBMIT} onKeyDown={this.onKeyDown} onKeyUp={this.onKeyUp} />}
+			<Button className={Styles.submit} primary disabled={disabled} content='Submit' onClick={onSubmit} />
+		</Fragment>
+	}
+} 
+
+SubmitButton.enabled = false;
 
 SubmitButton.propTypes = {
 	onSubmit : PropTypes.func.isRequired,
@@ -512,3 +544,8 @@ SubmitButton.defaultProp = {
 	disabled : false
 }
 
+function ClassNames() {
+	return _.filter(arguments, className => {
+		return className ? true : false;
+	}).join(' ');
+}
