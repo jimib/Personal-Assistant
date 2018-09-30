@@ -55,5 +55,10 @@
       "./src",
       "./tests"
     ]
+  },
+  "assistant": {
+    "tasks" : [
+      "../PersonalAssistantTasksReact"
+    ]
   }
 }

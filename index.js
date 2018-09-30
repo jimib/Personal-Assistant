@@ -13,13 +13,14 @@ const ACTIONS = Object.freeze({
 })
 
 //look for an assistant directory
-getAssistantStore( DIR_PROMPT )
-.then( dir => {
-	if( !dir ){
+getAssistantStores( DIR_PROMPT )
+.then( dirs => {
+	if( _.isEmpty( dirs ) ){
 		throw new Error('Assistant Store could not be found');
 	}
 	
-	new Assistant( dir );
+	console.log( dirs );
+	new Assistant( dirs );
 } )
 
 function Assistant( dirStore ){
@@ -386,6 +387,7 @@ Assistant.prototype.exit = function( ){
 }
 
 //HELPERS
+/*
 function getAssistantStore( dir ){
 	const dirAssistant = path.resolve( dir, 'assistant' );
 	return fs.existsAsync( dirAssistant )
@@ -398,8 +400,59 @@ function getAssistantStore( dir ){
 			if( !dirParent || dirParent == dir ){
 				return null;
 			}else if( dirParent ){
-				return getAssistantStore( dirParent );
+				return getAssistantStores( dirParent );
 			}
 		}
 	} )
+}*/
+
+function getAssistantStores( dir ){
+	dir = path.resolve( dir );
+	const dirParts = dir.split( path.sep );
+	const numParts = _.size( dirParts );
+	return Promise.mapSeries( _.times( numParts ), ( index ) => {
+		return Promise.resolve( numParts - index )
+		.then( end => _.slice( dirParts, 0, end ).join( path.sep ) )
+		.then( dir => getProjectTasks( dir ) )
+	} )
+	.then( result => {
+		console.log( result );
+		return _.uniq( _.flatten( result ) )
+	})
+	/*
+	const dirAssistant = path.resolve( dir, 'assistant' );
+	return fs.existsAsync( dirAssistant )
+	.then( exists => {
+		if( exists ){
+			return dirAssistant;
+		}else{
+			//should we explore parent directory
+			const dirParent = path.dirname( dir );
+			if( !dirParent || dirParent == dir ){
+				return null;
+			}else if( dirParent ){
+				return getAssistantStores( dirParent );
+			}
+		}
+	} )
+	*/
+}
+
+function getProjectTasks( dir ){
+	return new Promise( ( resolve, reject ) => {
+		const pathToPackage = path.resolve( dir, 'package.json' );
+		return fs.readJSONAsync( pathToPackage )
+		.catch( err => {
+			resolve([]);
+		} )
+		.then( data => {
+			const {assistant} = data;
+			const {tasks} = assistant || {};
+			
+			return _.isEmpty( tasks ) ? [] : Promise.mapSeries( tasks, task => {
+				return path.resolve( dir, task );
+			} );
+		} )
+		.then( resolve )
+	} );
 }
