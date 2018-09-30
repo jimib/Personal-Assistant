@@ -33,7 +33,7 @@ task( TASK_NAME )
 	.then( ( options ) => {
 		const {name,includes} = options;
 		//do something about this
-		Promise.mapSeries( _.filter([
+		return Promise.mapSeries( _.filter([
 			_.includes( includes, COMPONENT ) ? () => assistant.template( `./tests/example/components/${name}Component.js`, 'templates/BasicComponent.js', options ) : null,
 			_.includes( includes, COMPONENT_STYLESHEET ) ? () => assistant.template( `./tests/example/components/css/${name}Component.styl`, 'templates/BasicComponentStyle.styl', options ) : null,
 			_.includes( includes, CONTAINER ) ? () => assistant.template( `./tests/example/containers/${name}Container.js`, 'templates/BasicContainer.js', options ) : null
