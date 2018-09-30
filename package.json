@@ -14,7 +14,8 @@
     "app:watch": "nodemon index.js",
     "app:dev": "concurrently \"npm run app:hotload\" \"npm run app:watch\"",
     "build:js": "webpack -d",
-    "build": "npm run build:js"
+    "build": "npm run build:js",
+    "release": "node scripts/release"
   },
   "preferGlobal": true,
   "dependencies": {
@@ -31,6 +32,7 @@
     "babel-plugin-transform-decorators-legacy": "^1.3.4",
     "babel-preset-env": "^1.6.1",
     "babel-preset-react": "^6.24.1",
+    "child-process-promise": "^2.2.1",
     "concurrently": "^3.6.1",
     "css-loader": "^1.0.0",
     "jquery": "^3.3.1",
