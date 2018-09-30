@@ -13,6 +13,7 @@
     "app:hotload": "webpack-dev-server --hot",
     "app:watch": "nodemon index.js",
     "app:dev": "concurrently \"npm run app:hotload\" \"npm run app:watch\"",
+    "app:live": "node bin/assistant",
     "build:js": "webpack -d",
     "build": "npm run build:js",
     "release": "node scripts/release"

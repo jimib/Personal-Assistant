@@ -1,14 +1,20 @@
 
+body, html
+	margin 0px
+	padding 0px
+	background-color #000000
+
 .container
 	width 100%
 	margin 0
 	padding 10
+	color #ffffff !important
 
 	&.enabled
-		border 10px solid green
+		border 0px solid green
 	
 	&.disabled
-		border 10px solid red
+		border 0px solid red
 	
 	.submit
 		margin-top 20px
@@ -24,6 +30,11 @@
 
 	.select
 		display block
+
+		>div
+			padding 10px
+			label
+				color white !important
 
 		hr
 			margin 10 0 10 0
