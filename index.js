@@ -12,6 +12,7 @@ const ACTIONS = Object.freeze({
 	EXIT : 'ACTION:EXIT'
 })
 
+
 //look for an assistant directory
 getAssistantStores( DIR_PROMPT )
 .then( dirs => {
@@ -19,20 +20,25 @@ getAssistantStores( DIR_PROMPT )
 		throw new Error('Assistant Store could not be found');
 	}
 	
-	console.log( dirs );
 	new Assistant( dirs );
 } )
 
-function Assistant( dirStore ){
+function Assistant( dirStores ){
 	//variables
-	this.dirStore = dirStore;
+	this.dirStores = dirStores;
 	this.tasks = {};
 	this.tasksCompleted = [];
 
 	return this.init()
-	.then( result => this.list( this.dirStore, {extensions:['.js']} ) )
-	.then( scripts => {
-		const pathToList = path.resolve( this.dirStore, 'list.json' ) ;
+	.then( result => {
+		return Promise.mapSeries( dirStores, dirStore => {
+			return this.list( dirStore, {extensions:['.js']} )
+			.then( items => _.map( items, item => path.join( dirStore, item ) ) );
+		} )
+		.then( result => _.flatten( result ) );
+	})
+	/*.then( scripts => {
+		//const pathToList = path.resolve( this.currentTask.dir, 'list.json' ) ;
 		return fs.existsAsync( pathToList )
 		.then( listExists => {
 			if( listExists ){
@@ -61,13 +67,17 @@ function Assistant( dirStore ){
 				return scripts;
 			}
 		} )
-	})
+	})*/
 	.then( scripts => {
 
 		//loop each script and get a list of tasks
 		_.each( scripts, script => {
 			const id = path.basename( script, path.extname( script ) );
-			const refTask = this.tasks[id] = {id};
+			const refTask = this.tasks[id] = {
+				id, 
+				script, 
+				dir:path.dirname(script) 
+			};
 			
 			//expose function to the imported script
 			global.task = function( name ){
@@ -79,8 +89,13 @@ function Assistant( dirStore ){
 				}
 			}
 			//now require it
-			require( path.resolve( this.dirStore, script ) );
-
+			console.log('requiring', script);
+			try{
+				require( path.resolve( script ) );
+			}catch( err ){
+				console.error('Error with script', err);
+			}
+			
 			if( !util.isFunction( refTask.func ) ){
 				console.warn(`Task for '${id}' was not defined`)
 				delete this.tasks[id];
@@ -145,39 +160,40 @@ Assistant.prototype.choose = function( message, choices ){
 			}
 		}
 	])
-	.then( result => {console.log('result', result);return result;} )
 	.then( result => result.choice );
 }
 
 Assistant.prototype.ask = function( questions ){
-	console.log( 'ask', JSON.stringify( questions ) );
 	return this.popup.evaluate( (questions) => {
 		return window.ask( questions );
 	}, questions )
 	.catch( err => {
 		console.log( err );
-	} )
+	} );
 }
 
 
 Assistant.prototype.start = function( id, options = {} ){
+	console.log('start', id, options);
 	//this.status.updateBottomBar(`Task: ${this.tasks[id].name}`)
 	if( this.currentTask ){
 		throw new Error(`Task '${this.currentTask.id}' is still running`);
 	}else if( !id ){
 		throw new Error('Task id required');
 	}else{
-		this.currentTask = {id,options};
-		const promise = this.tasks[id].func( this, options );
+		this.currentTask = _.assign(options || {},this.tasks[id]);
+		const promise = this.currentTask.func( this, options );
 
 		if( !util.isNullOrUndefined( promise ) ){
 			if( util.isFunction( promise.then ) ){
 				//wait until it completes
 				promise.then( result => {
+					console.log('completed', result);
 					completedCurrentTask();
 					//check for additional task
 					checkForTask( result );
-				} );
+				} )
+				.catch( err => console.error('Unable to complete task', err ) );
 			}else{
 				completedCurrentTask();
 				checkForTask( promise );
@@ -186,6 +202,7 @@ Assistant.prototype.start = function( id, options = {} ){
 	}
 
 	const completedCurrentTask = () => {
+		console.log('completedCurrentTask');
 		if( this.currentTask ){
 			this.tasksCompleted.push( this.currentTask );
 			this.currentTask = null;			
@@ -240,10 +257,12 @@ Assistant.prototype.search = function( dir, search, options={} ){
 
 Assistant.prototype.list = function( dir = '', options = {} ){
 	const pathToSearch = path.resolve( DIR_PROMPT, dir );
+	console.log('list', pathToSearch );
 	//retrieve a list of tasks
 	return fs.readdirAsync( pathToSearch )
 	//filter out any non-scripts
 	.then( scripts => {
+		//console.log();
 		return !options.extensions ? scripts : 
 		_.filter( scripts, script => {
 			return _.includes( options.extensions, path.extname(script) )
@@ -251,25 +270,40 @@ Assistant.prototype.list = function( dir = '', options = {} ){
 	})
 }
 
-Assistant.prototype.template = function( target, template, options={} ){
+Assistant.prototype.render = function( template, options={} ){
 	//where is the template
-	const pathToTemplate = path.resolve( this.dirStore, template );
-	const pathToTarget = path.resolve( DIR_PROMPT, target );
+	const pathToTemplate = path.resolve( this.currentTask.dir, template );
 
 	return fs.readFileAsync( pathToTemplate, 'utf8' )
 	.then( templateContent => {
 		//create contents from the file
 		return Handlebars.compile( templateContent )( options );
+	} );	
+}
+
+Assistant.prototype.template = function( target, template, options={} ){
+	//where is the template
+	const pathToTemplate = path.resolve( this.currentTask.dir, template );
+	const pathToTarget = path.resolve( DIR_PROMPT, target );
+
+	return fs.existsAsync( pathToTarget )
+	.then( exists => {
+		if( exists ){
+			throw new Error(`'${target}' already exists!`);
+		}else{
+			return this.render( template, options )
+			//make sure the directory exists before we continue
+			.then( content => fs.ensureDirAsync( path.dirname( pathToTarget ) ).then( result => content ) )
+			//write out the file
+			.then( content => fs.writeFileAsync( pathToTarget, content ) );
+		}
 	} )
-	//make sure the directory exists before we continue
-	.then( content => fs.ensureDirAsync( path.dirname( pathToTarget ) ).then( result => content ) )
-	//write out the file
-	.then( content => fs.writeFileAsync( pathToTarget, content ) );
+	
 }
 
 Assistant.prototype.templateInsert = function( target, index, template, options={} ){
 	//where is the template
-	const pathToTemplate = path.resolve( this.dirStore, template );
+	const pathToTemplate = path.resolve( this.currentTask.dir, template );
 
 	return fs.readFileAsync( pathToTemplate, 'utf8' )
 	.then( templateContent => {
@@ -334,6 +368,19 @@ Assistant.prototype.editCode = function( target, options = {} ){
 			const {code} = result;
 			return fs.writeFileAsync( target, code, 'utf8');
 		} )
+	} )
+}
+
+Assistant.prototype.insertCodeBlock = function( target, blockName, code, options = {} ){
+	return fs.readFileAsync( target, 'utf8' )
+	.then( codeContent => {
+		const codeLines = codeContent.split('\n');
+		let indexInject = _.findIndex( codeLines, (line, index) => {
+			return (line.indexOf(`INJECT:${blockName}`) > -1 ? true : false );
+		});
+
+		indexInject = indexInject == -1 ? _.size( codeLines ) : indexInject;
+		this.insert( target, indexInject, code );
 	} )
 }
 
@@ -416,7 +463,6 @@ function getAssistantStores( dir ){
 		.then( dir => getProjectTasks( dir ) )
 	} )
 	.then( result => {
-		console.log( result );
 		return _.uniq( _.flatten( result ) )
 	})
 	/*
@@ -441,18 +487,18 @@ function getAssistantStores( dir ){
 function getProjectTasks( dir ){
 	return new Promise( ( resolve, reject ) => {
 		const pathToPackage = path.resolve( dir, 'package.json' );
-		return fs.readJSONAsync( pathToPackage )
-		.catch( err => {
-			resolve([]);
-		} )
-		.then( data => {
-			const {assistant} = data;
-			const {tasks} = assistant || {};
-			
-			return _.isEmpty( tasks ) ? [] : Promise.mapSeries( tasks, task => {
-				return path.resolve( dir, task );
-			} );
-		} )
+		return fs.existsAsync( pathToPackage )
+		.then( exists => {
+			return !exists ? [] : fs.readJSONAsync( pathToPackage )
+			.then( data => {
+				const {assistant} = data;
+				const {tasks} = assistant || {};
+				
+				return _.isEmpty( tasks ) ? [] : Promise.mapSeries( tasks, task => {
+					return path.resolve( dir, task );
+				} );
+			} )
+		} ) 
 		.then( resolve )
 	} );
 }

@@ -58,7 +58,7 @@
   },
   "assistant": {
     "tasks" : [
-      "../PersonalAssistantTasksReact"
+      "../PersonalAssistantTasksReact/tasks"
     ]
   }
 }
