@@ -1,6 +1,6 @@
 {
   "name": "personal-assistant",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Personal Assistant to help in common tasks for your project",
   "main": "index.js",
   "author": "Jimib",
