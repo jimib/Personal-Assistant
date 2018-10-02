@@ -1,6 +1,6 @@
 {
   "name": "personal-assistant",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Personal Assistant to help in common tasks for your project",
   "main": "index.js",
   "author": "Jimib",
@@ -57,7 +57,7 @@
     ]
   },
   "assistant": {
-    "tasks" : [
+    "tasks": [
       "../PersonalAssistantTasksReact/tasks"
     ]
   }
