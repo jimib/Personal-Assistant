@@ -286,6 +286,11 @@ class QuestionInput extends Question{
 
 	componentDidMount = () => {
 		this.initQuestion();
+		if( this.props.options && this.props.options.value ){
+			this.setState({
+				value: this.props.options.value
+			})
+		}
 	}
 
 	initQuestion = () => {
@@ -563,6 +568,14 @@ const DEMO_QUESTIONS = [
 		message : 'Question',
 		type: 'input',
 		name: 'q3'
+	},
+	{
+		message : 'Question with initial value',
+		type: 'input',
+		name: 'q4',
+		options : {
+			value : 'Is this prediction right?'
+		}
 	},
 	{
 		message : 'Code',

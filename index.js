@@ -116,12 +116,12 @@ function Assistant( dirStores ){
 }
 
 Assistant.prototype.init = async function(){
+	const pathToApp = `file:${path.resolve( __dirname, 'dist', 'index.html')}`;
 	this.browser = await puppeteer.launch(
 		{
 			headless:false,
 			devtools:false,
-			//defaultViewport : {width:300,height:500},
-			args: ['--disable-infobars']
+			args: ['--disable-infobars','--window-size=800,500',`--app=${pathToApp}`]
 		}
 	);
 	this.popup = await this.browser.pages().then( pages => _.first( pages ) );
@@ -411,7 +411,7 @@ Assistant.prototype.insertCodeBlock = function( target, blockName, code, options
 ${code}
 ${_.slice( codeLines, indexInject + 1 ).join('\n')}`;
 
-		console.log('insertCodeBlock', blockName, output );
+		//console.log('insertCodeBlock', blockName, output );
 
 		return fs.writeFileAsync( target, output, 'utf8');
 	} )
