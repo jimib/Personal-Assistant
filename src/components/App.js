@@ -486,7 +486,6 @@ class QuestionCode extends Question{
 class SubmitButton extends Component{
 
 	onKeyDown = () => {
-		console.log('onKeyDown');
 		const {disabled,onSubmit} = this.props;
 		if( !disabled && !SubmitButton.enabled ){
 			SubmitButton.enabled = false;
@@ -495,14 +494,13 @@ class SubmitButton extends Component{
 	}
 	
 	onKeyUp = () => {
-		console.log('onKeyUp');
 		SubmitButton.enabled = true;
 	}
 
 	render = ( ) => {
 		const {disabled,onSubmit} = this.props;
 		return <Fragment>
-			{false && !disabled && <HotKeys keyName={KEYS_SUBMIT} onKeyDown={this.onKeyDown} onKeyUp={this.onKeyUp} />}
+			{!disabled && <HotKeys keyName={KEYS_SUBMIT} onKeyDown={this.onKeyDown} onKeyUp={this.onKeyUp} />}
 			<Button className={Styles.submit} primary disabled={disabled} content='Submit' onClick={onSubmit} />
 		</Fragment>
 	}
