@@ -1,1 +1,1 @@
-require('../index');
+const assistannt = require('../index');
