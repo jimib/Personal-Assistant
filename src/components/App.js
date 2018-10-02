@@ -26,64 +26,7 @@ class App extends Component {
 		enabled: true,
 		acceptedAnswer : false,
 		answers: [],
-		questions: false ? [] : [
-			{
-				type: 'choose',
-				name: 'q2',
-				message : 'Choose',
-				options: {
-					allowOther: true,
-					items: [
-						{label : 'Option 1', value: 1},
-						{label : 'Option 2', value: 2},
-						{label : 'Option 3', value: 3},
-						{label : 'Option 4', value: 4}
-					]
-				}
-			},
-			{
-				type: 'multiselect',
-				name: 'q1',
-				message : 'Multiselect',
-				options: {
-					items: [
-						{label : 'Option 1', value: 1, enabled: true},
-						{label : 'Option 2', value: 2, enabled: true},
-						{type : 'seperator'},
-						{type : 'header',label:'Other'},
-						{label : 'Option 3', value: 3},
-						{label : 'Option 4', value: 4}
-					]
-				}
-			},
-			{
-				message : 'Password',
-				type: 'password',
-				name: 'q4'
-			},
-			{
-				message : 'Question',
-				type: 'input',
-				name: 'q3'
-			},
-			{
-				message : 'Code',
-				type: 'code',
-				name: 'q5',
-				options: {
-					value : `
-it('Should ', () => {
-	return Promise.resolve()
-	.then( ( result ) => {
-		console.assert( result, 'Expected a result' );
-	} );
-})`,
-					line : 2,
-					column : 11,
-					language : 'javascript'
-				}
-			}
-		],
+		questions: [],
 		resolve: ( answers ) => console.log(`Complete`, answers),
 		reject: ( err ) => console.error('Error', err)
 	}
@@ -91,6 +34,12 @@ it('Should ', () => {
 	componentDidMount() {
 		//expose our ask method to the window so that puppeteer can call it
 		window.ask = this.ask;
+
+		setTimeout( () => {
+			if( _.isEmpty( this.state.questions ) ){
+				this.ask( DEMO_QUESTIONS );
+			}
+		}, 1000 );
 	}
 
 	ask = (questions) => {
@@ -140,6 +89,9 @@ it('Should ', () => {
 		if( !util.isNullOrUndefined( question ) ){
 			const {name} = question; 
 			switch( question.type ){
+				case 'alert':
+					return <Alert key={name} message={question.message} onAnswer={this.onAnswer} />
+				break;
 				case 'multiselect':
 					return <QuestionMultiSelect key={name} name={name} options={question.options} onAnswer={this.onAnswer} />
 				break;
@@ -178,6 +130,24 @@ it('Should ', () => {
 }
 
 export default hot(module)(App);
+
+class Alert extends Component{
+	
+	onDismiss = () => {
+		this.props.onAnswer();
+	}
+
+	render(){
+		const {message} = this.props;
+		return <div className={Styles.alert}>
+			<SubmitButton onSubmit={this.onDismiss} />
+		</div>
+	}
+}
+
+Alert.propTypes = {
+	message : PropTypes.string
+}
 
 class Question extends Component{
 
@@ -549,3 +519,66 @@ function ClassNames() {
 		return className ? true : false;
 	}).join(' ');
 }
+
+const DEMO_QUESTIONS = [
+	{
+		type: 'alert',
+		message : 'This is a dismissable alert'
+	},
+	{
+		type: 'choose',
+		name: 'q2',
+		message : 'Choose',
+		options: {
+			allowOther: true,
+			items: [
+				{label : 'Option 1', value: 1},
+				{label : 'Option 2', value: 2},
+				{label : 'Option 3', value: 3},
+				{label : 'Option 4', value: 4}
+			]
+		}
+	},
+	{
+		type: 'multiselect',
+		name: 'q1',
+		message : 'Multiselect',
+		options: {
+			items: [
+				{label : 'Option 1', value: 1, enabled: true},
+				{label : 'Option 2', value: 2, enabled: true},
+				{type : 'seperator'},
+				{type : 'header',label:'Other'},
+				{label : 'Option 3', value: 3},
+				{label : 'Option 4', value: 4}
+			]
+		}
+	},
+	{
+		message : 'Password',
+		type: 'password',
+		name: 'q4'
+	},
+	{
+		message : 'Question',
+		type: 'input',
+		name: 'q3'
+	},
+	{
+		message : 'Code',
+		type: 'code',
+		name: 'q5',
+		options: {
+			value : `
+it('Should ', () => {
+return Promise.resolve()
+.then( ( result ) => {
+console.assert( result, 'Expected a result' );
+} );
+})`,
+			line : 2,
+			column : 11,
+			language : 'javascript'
+		}
+	}
+]

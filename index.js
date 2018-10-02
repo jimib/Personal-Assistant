@@ -12,6 +12,10 @@ const ACTIONS = Object.freeze({
 	EXIT : 'ACTION:EXIT'
 })
 
+const DIR_EXAMPLE = path.resolve('tests','example');
+if( fs.existsSync( DIR_EXAMPLE ) ){
+	fs.removeSync( DIR_EXAMPLE );
+}
 
 //look for an assistant directory
 getAssistantStores( DIR_PROMPT )
@@ -172,6 +176,22 @@ Assistant.prototype.ask = function( questions ){
 	} );
 }
 
+Assistant.prototype.alert = function( message ){
+	return this.ask([
+		{
+			type : 'alert',
+			message : message
+		}
+	])
+}
+
+Assistant.prototype.confirm = function( message ){
+	return this.choose( message, [
+		{label:'Yes',value:true},
+		{label:'No',value:false},
+	])
+}
+
 
 Assistant.prototype.start = function( id, options = {} ){
 	console.log('start', id, options);
@@ -259,15 +279,21 @@ Assistant.prototype.list = function( dir = '', options = {} ){
 	const pathToSearch = path.resolve( DIR_PROMPT, dir );
 	console.log('list', pathToSearch );
 	//retrieve a list of tasks
-	return fs.readdirAsync( pathToSearch )
-	//filter out any non-scripts
+	return fs.existsAsync( dir ).then( exists => {
+		if( !exists ){
+			return [];
+		}else{
+			return fs.readdirAsync( pathToSearch )
+		}
+	} )
 	.then( scripts => {
-		//console.log();
+		//filter out any non-scripts
 		return !options.extensions ? scripts : 
 		_.filter( scripts, script => {
 			return _.includes( options.extensions, path.extname(script) )
 		})
 	})
+	
 }
 
 Assistant.prototype.render = function( template, options={} ){
@@ -380,16 +406,23 @@ Assistant.prototype.insertCodeBlock = function( target, blockName, code, options
 		});
 
 		indexInject = indexInject == -1 ? _.size( codeLines ) : indexInject;
-		this.insert( target, indexInject, code );
+		
+		const output = `${_.slice( codeLines, 0, indexInject + 1 ).join('\n')}
+${code}
+${_.slice( codeLines, indexInject + 1 ).join('\n')}`;
+
+		console.log('insertCodeBlock', blockName, output );
+
+		return fs.writeFileAsync( target, output, 'utf8');
 	} )
 }
 
 Assistant.prototype.prepend = function( target, content ){
-	this.insert( target, 0, content );
+	this.insert( target, 0, `${content}\n` );
 }
 
 Assistant.prototype.append = function( target, content ){
-	this.insert( target, 0, content );
+	this.insert( target, -1, `\n${content}` );
 }
 
 Assistant.prototype.insert = function( target, index, insert ){
