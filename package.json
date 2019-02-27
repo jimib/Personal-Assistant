@@ -1,6 +1,6 @@
 {
   "name": "personal-assistant",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Personal Assistant to help in common tasks for your project",
   "main": "index.js",
   "author": "Jimib",
@@ -25,7 +25,7 @@
     "lodash": "^4.17.10",
     "puppeteer": "^1.6.1",
     "react-hot-keys": "^1.2.0",
-    "url-parse" : "^1.4.3"
+    "url-parse": "^1.4.3"
   },
   "devDependencies": {
     "babel-core": "^6.26.3",
