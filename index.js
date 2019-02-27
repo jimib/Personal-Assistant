@@ -17,6 +17,8 @@ if( fs.existsSync( DIR_EXAMPLE ) ){
 	fs.removeSync( DIR_EXAMPLE );
 }
 
+console.log('DIR_PROMPT', DIR_PROMPT);
+
 //look for an assistant directory
 getAssistantStores( DIR_PROMPT )
 .then( dirs => {
@@ -24,6 +26,7 @@ getAssistantStores( DIR_PROMPT )
 		throw new Error('Assistant Store could not be found');
 	}
 	
+	console.log('dirs', dirs );
 	new Assistant( dirs );
 } )
 
